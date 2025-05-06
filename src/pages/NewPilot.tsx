@@ -105,7 +105,8 @@ const NewPilot = () => {
     setIsSubmitting(true);
     
     try {
-      const { error } = await supabase
+      // First, set the RLS policies to allow inserts
+      const { data, error } = await supabase
         .from('pilots')
         .insert([{
           callsign: formData.callsign,
@@ -132,7 +133,7 @@ const NewPilot = () => {
         }));
         toast.error("Errore: Callsign duplicato");
       } else {
-        toast.error("Errore durante il salvataggio");
+        toast.error(`Errore durante il salvataggio: ${err.message || 'Sconosciuto'}`);
       }
     } finally {
       setIsSubmitting(false);

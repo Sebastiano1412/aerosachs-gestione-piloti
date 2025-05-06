@@ -21,7 +21,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
           <Button 
             variant="outline" 
-            className="border-white text-white hover:bg-white hover:text-primary"
+            className="border-white text-black hover:bg-white hover:text-primary"
             onClick={logout}
           >
             Logout
