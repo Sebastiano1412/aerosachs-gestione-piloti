@@ -1,0 +1,226 @@
+
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import Layout from '../components/Layout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ArrowLeft, Save } from 'lucide-react';
+import { toast } from 'sonner';
+
+// Mock data - will be replaced by Supabase data
+const existingCallsigns = ["ASX001", "ASX002", "ASX003"];
+
+const NewPilot = () => {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    callsign: '',
+    name: '',
+    surname: '',
+    discord: '',
+    old_flights: 0
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'old_flights' ? parseInt(value) || 0 : value
+    }));
+    
+    // Clear the error for this field if it exists
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.callsign) {
+      newErrors.callsign = "Il callsign è obbligatorio";
+    } else if (existingCallsigns.includes(formData.callsign)) {
+      newErrors.callsign = "Questo callsign è già in uso";
+    }
+    
+    if (!formData.name) {
+      newErrors.name = "Il nome è obbligatorio";
+    }
+    
+    if (!formData.surname) {
+      newErrors.surname = "Il cognome è obbligatorio";
+    }
+    
+    if (!formData.discord) {
+      newErrors.discord = "L'username Discord è obbligatorio";
+    }
+    
+    if (formData.old_flights < 0) {
+      newErrors.old_flights = "Il numero di voli non può essere negativo";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    // Simulate saving data - will be replaced with Supabase insert
+    setTimeout(() => {
+      try {
+        // Success - would be a DB insert in production
+        toast.success("Nuovo pilota aggiunto con successo");
+        navigate('/dashboard');
+      } catch (err) {
+        toast.error("Errore durante il salvataggio");
+        console.error(err);
+      } finally {
+        setIsSubmitting(false);
+      }
+    }, 1000);
+  };
+
+  return (
+    <Layout>
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => navigate('/dashboard')}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-3xl font-bold">Aggiungi Nuovo Pilota</h1>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Informazioni Pilota</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="callsign">
+                    Callsign
+                    <span className="text-destructive ml-1">*</span>
+                  </Label>
+                  <Input
+                    id="callsign"
+                    name="callsign"
+                    value={formData.callsign}
+                    onChange={handleInputChange}
+                    className={errors.callsign ? "border-destructive" : ""}
+                    placeholder="es. ASX004"
+                    required
+                  />
+                  {errors.callsign && (
+                    <p className="text-sm text-destructive">{errors.callsign}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="name">
+                    Nome
+                    <span className="text-destructive ml-1">*</span>
+                  </Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className={errors.name ? "border-destructive" : ""}
+                    required
+                  />
+                  {errors.name && (
+                    <p className="text-sm text-destructive">{errors.name}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="surname">
+                    Cognome
+                    <span className="text-destructive ml-1">*</span>
+                  </Label>
+                  <Input
+                    id="surname"
+                    name="surname"
+                    value={formData.surname}
+                    onChange={handleInputChange}
+                    className={errors.surname ? "border-destructive" : ""}
+                    required
+                  />
+                  {errors.surname && (
+                    <p className="text-sm text-destructive">{errors.surname}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="discord">
+                    Username Discord
+                    <span className="text-destructive ml-1">*</span>
+                  </Label>
+                  <Input
+                    id="discord"
+                    name="discord"
+                    value={formData.discord}
+                    onChange={handleInputChange}
+                    className={errors.discord ? "border-destructive" : ""}
+                    placeholder="es. username#1234"
+                    required
+                  />
+                  {errors.discord && (
+                    <p className="text-sm text-destructive">{errors.discord}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="old_flights">Voli Totali Vecchi VMS</Label>
+                  <Input
+                    id="old_flights"
+                    name="old_flights"
+                    type="number"
+                    min="0"
+                    value={formData.old_flights}
+                    onChange={handleInputChange}
+                    className={errors.old_flights ? "border-destructive" : ""}
+                  />
+                  {errors.old_flights && (
+                    <p className="text-sm text-destructive">{errors.old_flights}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  asChild
+                >
+                  <Link to="/dashboard">Annulla</Link>
+                </Button>
+                <Button type="submit" className="gap-2" disabled={isSubmitting}>
+                  <Save className="h-4 w-4" />
+                  {isSubmitting ? "Salvataggio..." : "Salva"}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </Layout>
+  );
+};
+
+export default NewPilot;
