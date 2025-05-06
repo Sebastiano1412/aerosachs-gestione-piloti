@@ -7,15 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, User } from 'lucide-react';
+import { ArrowLeft, Save, User, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-// Mock data - will be replaced by Supabase data
-const initialPilots: Pilot[] = [
-  { id: "1", callsign: "ASX001", name: "Marco", surname: "Rossi", discord: "marco_rossi#1234", old_flights: 42 },
-  { id: "2", callsign: "ASX002", name: "Laura", surname: "Bianchi", discord: "laura_b#5678", old_flights: 28 },
-  { id: "3", callsign: "ASX003", name: "Antonio", surname: "Verdi", discord: "a_verdi#9012", old_flights: 56 }
-];
+import { supabase } from "@/integrations/supabase/client";
 
 const PilotDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +22,7 @@ const PilotDetail = () => {
     old_flights: 0
   });
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Pilot>({
@@ -39,26 +34,36 @@ const PilotDetail = () => {
   });
 
   useEffect(() => {
-    // Simulate fetching data - will be replaced with Supabase query
-    const fetchPilot = () => {
+    const fetchPilot = async () => {
       setLoading(true);
       try {
-        const foundPilot = initialPilots.find(p => p.id === id);
-        if (foundPilot) {
-          setPilot(foundPilot);
-          setFormData(foundPilot);
+        const { data, error } = await supabase
+          .from('pilots')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (error) {
+          throw error;
+        }
+
+        if (data) {
+          setPilot(data);
+          setFormData(data);
         } else {
           setError("Pilota non trovato");
         }
       } catch (err) {
+        console.error('Error fetching pilot:', err);
         setError("Errore durante il caricamento dei dati");
-        console.error(err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPilot();
+    if (id) {
+      fetchPilot();
+    }
   }, [id]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,18 +74,36 @@ const PilotDetail = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Simulate saving data - will be replaced with Supabase mutation
+    setSaving(true);
     try {
-      // Update the pilot in state (would be a DB update in production)
+      const { error } = await supabase
+        .from('pilots')
+        .update({
+          callsign: formData.callsign,
+          name: formData.name,
+          surname: formData.surname,
+          discord: formData.discord,
+          old_flights: formData.old_flights,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+      
+      if (error) {
+        throw error;
+      }
+
+      // Update the local state
       setPilot(formData);
       setIsEditing(false);
       toast.success("Dati del pilota aggiornati con successo");
     } catch (err) {
+      console.error('Error updating pilot:', err);
       toast.error("Errore durante il salvataggio");
-      console.error(err);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -88,7 +111,7 @@ const PilotDetail = () => {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <p>Caricamento in corso...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </Layout>
     );
@@ -224,12 +247,22 @@ const PilotDetail = () => {
                       setIsEditing(false);
                       setFormData(pilot);
                     }}
+                    disabled={saving}
                   >
                     Annulla
                   </Button>
-                  <Button type="submit" className="gap-2">
-                    <Save className="h-4 w-4" />
-                    Salva
+                  <Button type="submit" className="gap-2" disabled={saving}>
+                    {saving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Salvataggio...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4" />
+                        Salva
+                      </>
+                    )}
                   </Button>
                 </div>
               </form>

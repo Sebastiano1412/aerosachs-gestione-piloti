@@ -1,16 +1,14 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-// Mock data - will be replaced by Supabase data
-const existingCallsigns = ["ASX001", "ASX002", "ASX003"];
+import { supabase } from "@/integrations/supabase/client";
 
 const NewPilot = () => {
   const navigate = useNavigate();
@@ -23,6 +21,31 @@ const NewPilot = () => {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingCallsigns, setExistingCallsigns] = useState<string[]>([]);
+
+  // Fetch existing callsigns for validation
+  useEffect(() => {
+    const fetchCallsigns = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('pilots')
+          .select('callsign');
+        
+        if (error) {
+          throw error;
+        }
+
+        if (data) {
+          setExistingCallsigns(data.map(pilot => pilot.callsign));
+        }
+      } catch (err) {
+        console.error('Error fetching callsigns:', err);
+        toast.error("Errore durante il caricamento dei callsign");
+      }
+    };
+
+    fetchCallsigns();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -46,6 +69,8 @@ const NewPilot = () => {
     
     if (!formData.callsign) {
       newErrors.callsign = "Il callsign è obbligatorio";
+    } else if (!formData.callsign.match(/^ASX[0-9]{3}$/)) {
+      newErrors.callsign = "Il callsign deve essere nel formato ASX seguito da 3 numeri (es. ASX001)";
     } else if (existingCallsigns.includes(formData.callsign)) {
       newErrors.callsign = "Questo callsign è già in uso";
     }
@@ -70,7 +95,7 @@ const NewPilot = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -79,19 +104,39 @@ const NewPilot = () => {
     
     setIsSubmitting(true);
     
-    // Simulate saving data - will be replaced with Supabase insert
-    setTimeout(() => {
-      try {
-        // Success - would be a DB insert in production
-        toast.success("Nuovo pilota aggiunto con successo");
-        navigate('/dashboard');
-      } catch (err) {
-        toast.error("Errore durante il salvataggio");
-        console.error(err);
-      } finally {
-        setIsSubmitting(false);
+    try {
+      const { error } = await supabase
+        .from('pilots')
+        .insert([{
+          callsign: formData.callsign,
+          name: formData.name,
+          surname: formData.surname,
+          discord: formData.discord,
+          old_flights: formData.old_flights
+        }]);
+      
+      if (error) {
+        throw error;
       }
-    }, 1000);
+
+      toast.success("Nuovo pilota aggiunto con successo");
+      navigate('/dashboard');
+    } catch (err: any) {
+      console.error('Error creating pilot:', err);
+      
+      if (err.code === '23505') {
+        // Unique violation error (likely callsign duplicate)
+        setErrors(prev => ({
+          ...prev,
+          callsign: "Questo callsign è già in uso"
+        }));
+        toast.error("Errore: Callsign duplicato");
+      } else {
+        toast.error("Errore durante il salvataggio");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -211,8 +256,17 @@ const NewPilot = () => {
                   <Link to="/dashboard">Annulla</Link>
                 </Button>
                 <Button type="submit" className="gap-2" disabled={isSubmitting}>
-                  <Save className="h-4 w-4" />
-                  {isSubmitting ? "Salvataggio..." : "Salva"}
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Salvataggio...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      Salva
+                    </>
+                  )}
                 </Button>
               </div>
             </form>
