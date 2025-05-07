@@ -23,13 +23,14 @@ const NewPilot = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [existingCallsigns, setExistingCallsigns] = useState<string[]>([]);
 
-  // Fetch existing callsigns for validation
+  // Fetch existing active callsigns for validation
   useEffect(() => {
     const fetchCallsigns = async () => {
       try {
         const { data, error } = await supabase
           .from('pilots')
-          .select('callsign');
+          .select('callsign')
+          .eq('suspended', false);
         
         if (error) {
           throw error;
@@ -105,22 +106,56 @@ const NewPilot = () => {
     setIsSubmitting(true);
     
     try {
-      // First, set the RLS policies to allow inserts
-      const { data, error } = await supabase
+      // Check if there's an existing suspended pilot with the same callsign
+      const { data: existingSuspended, error: checkError } = await supabase
         .from('pilots')
-        .insert([{
-          callsign: formData.callsign,
-          name: formData.name,
-          surname: formData.surname,
-          discord: formData.discord,
-          old_flights: formData.old_flights
-        }]);
-      
-      if (error) {
-        throw error;
-      }
+        .select('id')
+        .eq('callsign', formData.callsign)
+        .eq('suspended', true);
 
-      toast.success("Nuovo pilota aggiunto con successo");
+      if (checkError) {
+        throw checkError;
+      }
+      
+      // If callsign exists but is suspended, update it instead of inserting new
+      if (existingSuspended && existingSuspended.length > 0) {
+        const { error: updateError } = await supabase
+          .from('pilots')
+          .update({
+            name: formData.name,
+            surname: formData.surname,
+            discord: formData.discord,
+            old_flights: formData.old_flights,
+            suspended: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingSuspended[0].id);
+          
+        if (updateError) {
+          throw updateError;
+        }
+        
+        toast.success("Pilota riattivato con successo");
+      } else {
+        // Insert new pilot
+        const { error: insertError } = await supabase
+          .from('pilots')
+          .insert([{
+            callsign: formData.callsign,
+            name: formData.name,
+            surname: formData.surname,
+            discord: formData.discord,
+            old_flights: formData.old_flights,
+            suspended: false
+          }]);
+          
+        if (insertError) {
+          throw insertError;
+        }
+        
+        toast.success("Nuovo pilota aggiunto con successo");
+      }
+      
       navigate('/dashboard');
     } catch (err: any) {
       console.error('Error creating pilot:', err);

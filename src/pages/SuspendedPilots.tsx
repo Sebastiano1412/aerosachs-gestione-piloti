@@ -5,7 +5,7 @@ import { Pilot, SearchFilters } from '../types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, UserPlus, Edit, Trash2, Loader2, UserX } from 'lucide-react';
+import { Search, UserPlus, Trash2, Loader2, ArrowLeft, UserCheck } from 'lucide-react';
 import Layout from '../components/Layout';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
@@ -34,8 +34,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 
-const Dashboard = () => {
+const SuspendedPilots = () => {
   const [pilots, setPilots] = useState<Pilot[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({
@@ -52,7 +53,7 @@ const Dashboard = () => {
         const { data, error } = await supabase
           .from('pilots')
           .select('*')
-          .eq('suspended', false)
+          .eq('suspended', true)
           .order('callsign', { ascending: true });
         
         if (error) {
@@ -61,8 +62,8 @@ const Dashboard = () => {
 
         setPilots(data || []);
       } catch (error) {
-        console.error('Error fetching pilots:', error);
-        toast.error("Errore durante il caricamento dei piloti");
+        console.error('Error fetching suspended pilots:', error);
+        toast.error("Errore durante il caricamento dei piloti sospesi");
       } finally {
         setLoading(false);
       }
@@ -110,7 +111,7 @@ const Dashboard = () => {
 
         // Update local state after successful deletion
         setPilots(pilots.filter(pilot => pilot.id !== pilotToDelete));
-        toast.success("Pilota eliminato con successo");
+        toast.success("Pilota eliminato definitivamente");
       } catch (error) {
         console.error('Error deleting pilot:', error);
         toast.error("Errore durante l'eliminazione del pilota");
@@ -121,23 +122,23 @@ const Dashboard = () => {
     }
   };
 
-  const handleSuspendPilot = async (pilotId: string) => {
+  const handleReactivatePilot = async (pilotId: string) => {
     try {
       const { error } = await supabase
         .from('pilots')
-        .update({ suspended: true, updated_at: new Date().toISOString() })
+        .update({ suspended: false, updated_at: new Date().toISOString() })
         .eq('id', pilotId);
       
       if (error) {
         throw error;
       }
 
-      // Update local state after successful suspension
+      // Update local state after successful reactivation
       setPilots(pilots.filter(pilot => pilot.id !== pilotId));
-      toast.success("Pilota sospeso con successo");
+      toast.success("Pilota riattivato con successo");
     } catch (error) {
-      console.error('Error suspending pilot:', error);
-      toast.error("Errore durante la sospensione del pilota");
+      console.error('Error reactivating pilot:', error);
+      toast.error("Errore durante la riattivazione del pilota");
     }
   };
 
@@ -145,33 +146,36 @@ const Dashboard = () => {
     <Layout>
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <h1 className="text-3xl font-bold">Gestione Piloti</h1>
-          <div className="flex gap-2">
-            <Button asChild variant="outline">
-              <Link to="/suspended">
-                <UserX className="mr-2 h-4 w-4" />
-                Piloti Sospesi
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              size="icon"
+              asChild
+            >
+              <Link to="/dashboard">
+                <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
-            <Button asChild className="bg-accent hover:bg-accent/90">
-              <Link to="/new-pilot">
-                <UserPlus className="mr-2 h-4 w-4" />
-                Nuovo Pilota
-              </Link>
-            </Button>
+            <h1 className="text-3xl font-bold">Piloti Sospesi</h1>
           </div>
+          <Button asChild className="bg-accent hover:bg-accent/90">
+            <Link to="/new-pilot">
+              <UserPlus className="mr-2 h-4 w-4" />
+              Nuovo Pilota
+            </Link>
+          </Button>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Cerca Piloti</CardTitle>
+            <CardTitle>Cerca Piloti Sospesi</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col md:flex-row gap-4">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Cerca pilota..."
+                  placeholder="Cerca pilota sospeso..."
                   value={searchFilters.query}
                   onChange={handleSearchChange}
                   className="pl-9"
@@ -194,8 +198,11 @@ const Dashboard = () => {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Lista Piloti</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Lista Piloti Sospesi</CardTitle>
+            <Badge variant="destructive" className="text-xs">
+              {pilots.length} sospesi
+            </Badge>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -218,7 +225,7 @@ const Dashboard = () => {
                     {filteredPilots.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                          Nessun pilota trovato
+                          Nessun pilota sospeso trovato
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -233,15 +240,15 @@ const Dashboard = () => {
                               <Button 
                                 variant="outline" 
                                 size="icon"
-                                className="text-destructive hover:text-destructive hover:border-destructive"
-                                onClick={() => handleSuspendPilot(pilot.id as string)}
-                                title="Sospendi"
+                                className="text-primary hover:text-primary hover:border-primary"
+                                onClick={() => handleReactivatePilot(pilot.id as string)}
+                                title="Riattiva"
                               >
-                                <UserX className="h-4 w-4" />
+                                <UserCheck className="h-4 w-4" />
                               </Button>
                               <Button variant="outline" size="icon" asChild>
-                                <Link to={`/pilot/${pilot.id}`} title="Modifica">
-                                  <Edit className="h-4 w-4" />
+                                <Link to={`/pilot/${pilot.id}`} title="Dettagli">
+                                  <Search className="h-4 w-4" />
                                 </Link>
                               </Button>
                               <Button 
@@ -249,7 +256,7 @@ const Dashboard = () => {
                                 size="icon"
                                 className="text-destructive hover:text-destructive hover:border-destructive"
                                 onClick={() => handleDeleteClick(pilot.id as string)}
-                                title="Elimina"
+                                title="Elimina definitivamente"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
@@ -269,15 +276,15 @@ const Dashboard = () => {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Conferma eliminazione</AlertDialogTitle>
+            <AlertDialogTitle>Conferma eliminazione definitiva</AlertDialogTitle>
             <AlertDialogDescription>
-              Sei sicuro di voler eliminare questo pilota? Questa azione non può essere annullata.
+              Sei sicuro di voler eliminare definitivamente questo pilota? Il callsign potrà essere riutilizzato, ma tutti i dati associati andranno persi. Questa azione non può essere annullata.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annulla</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground">
-              Elimina
+              Elimina definitivamente
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -286,4 +293,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default SuspendedPilots;

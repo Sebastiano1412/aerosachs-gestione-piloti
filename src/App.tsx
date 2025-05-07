@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import PilotDetail from "./pages/PilotDetail";
 import NewPilot from "./pages/NewPilot";
 import NotFound from "./pages/NotFound";
+import SuspendedPilots from "./pages/SuspendedPilots";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,15 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <NewPilot />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="/suspended"
+              element={
+                <ProtectedRoute>
+                  <SuspendedPilots />
                 </ProtectedRoute>
               }
             />

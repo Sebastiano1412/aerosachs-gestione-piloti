@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, User, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, User, Loader2, UserX, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
 
 const PilotDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -19,10 +20,12 @@ const PilotDetail = () => {
     name: "",
     surname: "",
     discord: "",
-    old_flights: 0
+    old_flights: 0,
+    suspended: false
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [suspending, setSuspending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<Pilot>({
@@ -30,7 +33,8 @@ const PilotDetail = () => {
     name: "",
     surname: "",
     discord: "",
-    old_flights: 0
+    old_flights: 0,
+    suspended: false
   });
 
   useEffect(() => {
@@ -107,6 +111,41 @@ const PilotDetail = () => {
     }
   };
 
+  const handleSuspendToggle = async () => {
+    setSuspending(true);
+    try {
+      const newStatus = !pilot.suspended;
+      const { error } = await supabase
+        .from('pilots')
+        .update({
+          suspended: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+      
+      if (error) {
+        throw error;
+      }
+
+      // Update the local state
+      setPilot(prev => ({ ...prev, suspended: newStatus }));
+      toast.success(newStatus 
+        ? "Pilota sospeso con successo" 
+        : "Pilota riattivato con successo"
+      );
+      
+      // Redirect to suspended pilots page if suspended
+      if (newStatus) {
+        navigate('/suspended');
+      }
+    } catch (err) {
+      console.error('Error updating pilot status:', err);
+      toast.error("Errore durante l'aggiornamento dello stato");
+    } finally {
+      setSuspending(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -137,11 +176,14 @@ const PilotDetail = () => {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate(pilot.suspended ? '/suspended' : '/dashboard')}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-3xl font-bold">Dettagli Pilota</h1>
+          {pilot.suspended && (
+            <Badge variant="destructive" className="ml-2">Sospeso</Badge>
+          )}
         </div>
 
         <Card>
@@ -151,11 +193,30 @@ const PilotDetail = () => {
                 <User className="h-6 w-6" />
                 <span>{!isEditing ? `${pilot.name} ${pilot.surname} (${pilot.callsign})` : 'Modifica Pilota'}</span>
               </CardTitle>
-              {!isEditing && (
-                <Button onClick={() => setIsEditing(true)}>
-                  Modifica
-                </Button>
-              )}
+              <div className="flex gap-2">
+                {!isEditing && (
+                  <>
+                    <Button 
+                      variant={pilot.suspended ? "default" : "destructive"}
+                      className="gap-2"
+                      onClick={handleSuspendToggle}
+                      disabled={suspending}
+                    >
+                      {suspending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : pilot.suspended ? (
+                        <UserCheck className="h-4 w-4" />
+                      ) : (
+                        <UserX className="h-4 w-4" />
+                      )}
+                      {pilot.suspended ? "Riattiva" : "Sospendi"}
+                    </Button>
+                    <Button onClick={() => setIsEditing(true)}>
+                      Modifica
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>

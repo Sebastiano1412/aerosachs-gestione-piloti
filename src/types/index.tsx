@@ -6,6 +6,7 @@ export interface Pilot {
   surname: string;
   discord: string;
   old_flights: number;
+  suspended?: boolean;
 }
 
 export type SearchFilters = {
