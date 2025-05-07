@@ -7,6 +7,8 @@ export interface Pilot {
   discord: string;
   old_flights: number;
   suspended?: boolean;
+  suspension_reason?: string;
+  suspension_date?: string;
 }
 
 export type SearchFilters = {

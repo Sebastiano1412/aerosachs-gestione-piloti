@@ -5,7 +5,7 @@ import { Pilot, SearchFilters } from '../types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, UserPlus, Trash2, Loader2, ArrowLeft, UserCheck } from 'lucide-react';
+import { Search, UserPlus, Trash2, Loader2, ArrowLeft, UserCheck, Clock, AlignLeft } from 'lucide-react';
 import Layout from '../components/Layout';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
@@ -34,7 +34,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
 
 const SuspendedPilots = () => {
   const [pilots, setPilots] = useState<Pilot[]>([]);
@@ -126,7 +133,12 @@ const SuspendedPilots = () => {
     try {
       const { error } = await supabase
         .from('pilots')
-        .update({ suspended: false, updated_at: new Date().toISOString() })
+        .update({ 
+          suspended: false, 
+          updated_at: new Date().toISOString(),
+          suspension_reason: null,
+          suspension_date: null 
+        })
         .eq('id', pilotId);
       
       if (error) {
@@ -139,6 +151,15 @@ const SuspendedPilots = () => {
     } catch (error) {
       console.error('Error reactivating pilot:', error);
       toast.error("Errore durante la riattivazione del pilota");
+    }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    try {
+      return format(new Date(dateString), "dd/MM/yyyy HH:mm");
+    } catch (error) {
+      return "Data non valida";
     }
   };
 
@@ -217,14 +238,15 @@ const SuspendedPilots = () => {
                       <TableHead className="w-[100px]">Callsign</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead>Cognome</TableHead>
-                      <TableHead className="hidden md:table-cell">Username Discord</TableHead>
+                      <TableHead className="hidden md:table-cell">Data Sospensione</TableHead>
+                      <TableHead className="hidden md:table-cell">Motivo</TableHead>
                       <TableHead className="text-right">Azioni</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredPilots.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                        <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                           Nessun pilota sospeso trovato
                         </TableCell>
                       </TableRow>
@@ -234,7 +256,29 @@ const SuspendedPilots = () => {
                           <TableCell>{pilot.callsign}</TableCell>
                           <TableCell>{pilot.name}</TableCell>
                           <TableCell>{pilot.surname}</TableCell>
-                          <TableCell className="hidden md:table-cell">{pilot.discord}</TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <div className="flex items-center">
+                              <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
+                              {formatDate(pilot.suspension_date)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center cursor-help">
+                                    <AlignLeft className="mr-2 h-4 w-4 text-muted-foreground" />
+                                    <span className="truncate max-w-[150px]">
+                                      {pilot.suspension_reason || "Nessun motivo specificato"}
+                                    </span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <p>{pilot.suspension_reason || "Nessun motivo specificato"}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button 

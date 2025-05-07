@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Pilot, SearchFilters } from '../types';
@@ -34,6 +33,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 const Dashboard = () => {
   const [pilots, setPilots] = useState<Pilot[]>([]);
@@ -44,6 +53,9 @@ const Dashboard = () => {
   });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [pilotToDelete, setPilotToDelete] = useState<string | null>(null);
+  const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
+  const [pilotToSuspend, setPilotToSuspend] = useState<string | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState('');
 
   useEffect(() => {
     const fetchPilots = async () => {
@@ -121,23 +133,40 @@ const Dashboard = () => {
     }
   };
 
-  const handleSuspendPilot = async (pilotId: string) => {
-    try {
-      const { error } = await supabase
-        .from('pilots')
-        .update({ suspended: true, updated_at: new Date().toISOString() })
-        .eq('id', pilotId);
-      
-      if (error) {
-        throw error;
-      }
+  const handleSuspendClick = (pilotId: string) => {
+    setPilotToSuspend(pilotId);
+    setSuspendDialogOpen(true);
+  };
 
-      // Update local state after successful suspension
-      setPilots(pilots.filter(pilot => pilot.id !== pilotId));
-      toast.success("Pilota sospeso con successo");
-    } catch (error) {
-      console.error('Error suspending pilot:', error);
-      toast.error("Errore durante la sospensione del pilota");
+  const confirmSuspend = async () => {
+    if (pilotToSuspend) {
+      try {
+        const suspensionDate = new Date().toISOString();
+        const { error } = await supabase
+          .from('pilots')
+          .update({ 
+            suspended: true, 
+            updated_at: suspensionDate,
+            suspension_reason: suspensionReason,
+            suspension_date: suspensionDate
+          })
+          .eq('id', pilotToSuspend);
+        
+        if (error) {
+          throw error;
+        }
+
+        // Update local state after successful suspension
+        setPilots(pilots.filter(pilot => pilot.id !== pilotToSuspend));
+        toast.success("Pilota sospeso con successo");
+      } catch (error) {
+        console.error('Error suspending pilot:', error);
+        toast.error("Errore durante la sospensione del pilota");
+      } finally {
+        setSuspendDialogOpen(false);
+        setPilotToSuspend(null);
+        setSuspensionReason('');
+      }
     }
   };
 
@@ -234,7 +263,7 @@ const Dashboard = () => {
                                 variant="outline" 
                                 size="icon"
                                 className="text-destructive hover:text-destructive hover:border-destructive"
-                                onClick={() => handleSuspendPilot(pilot.id as string)}
+                                onClick={() => handleSuspendClick(pilot.id as string)}
                                 title="Sospendi"
                               >
                                 <UserX className="h-4 w-4" />
@@ -282,6 +311,45 @@ const Dashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sospensione pilota</DialogTitle>
+            <DialogDescription>
+              Inserisci il motivo della sospensione del pilota. Questa informazione verrà registrata.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="suspension-reason">Motivo della sospensione</Label>
+              <Textarea
+                id="suspension-reason"
+                placeholder="Inserisci il motivo della sospensione..."
+                value={suspensionReason}
+                onChange={(e) => setSuspensionReason(e.target.value)}
+                rows={4}
+                required
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setSuspendDialogOpen(false);
+              setSuspensionReason('');
+            }}>
+              Annulla
+            </Button>
+            <Button 
+              onClick={confirmSuspend} 
+              className="bg-destructive text-destructive-foreground"
+              disabled={!suspensionReason.trim()}
+            >
+              Sospendi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };

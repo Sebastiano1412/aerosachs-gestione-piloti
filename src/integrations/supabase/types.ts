@@ -19,6 +19,8 @@ export type Database = {
           old_flights: number
           surname: string
           suspended: boolean
+          suspension_date: string | null
+          suspension_reason: string | null
           updated_at: string | null
         }
         Insert: {
@@ -30,6 +32,8 @@ export type Database = {
           old_flights?: number
           surname: string
           suspended?: boolean
+          suspension_date?: string | null
+          suspension_reason?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -41,6 +45,8 @@ export type Database = {
           old_flights?: number
           surname?: string
           suspended?: boolean
+          suspension_date?: string | null
+          suspension_reason?: string | null
           updated_at?: string | null
         }
         Relationships: []

@@ -7,10 +7,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Save, User, Loader2, UserX, UserCheck } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { ArrowLeft, Save, User, Loader2, UserX, UserCheck, Clock, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const PilotDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -36,6 +46,8 @@ const PilotDetail = () => {
     old_flights: 0,
     suspended: false
   });
+  const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
+  const [suspensionReason, setSuspensionReason] = useState('');
 
   useEffect(() => {
     const fetchPilot = async () => {
@@ -111,15 +123,21 @@ const PilotDetail = () => {
     }
   };
 
-  const handleSuspendToggle = async () => {
+  const handleSuspendClick = () => {
+    setSuspendDialogOpen(true);
+  };
+
+  const confirmSuspend = async () => {
     setSuspending(true);
     try {
-      const newStatus = !pilot.suspended;
+      const suspensionDate = new Date().toISOString();
       const { error } = await supabase
         .from('pilots')
         .update({
-          suspended: newStatus,
-          updated_at: new Date().toISOString()
+          suspended: true,
+          updated_at: suspensionDate,
+          suspension_reason: suspensionReason,
+          suspension_date: suspensionDate
         })
         .eq('id', id);
       
@@ -128,21 +146,68 @@ const PilotDetail = () => {
       }
 
       // Update the local state
-      setPilot(prev => ({ ...prev, suspended: newStatus }));
-      toast.success(newStatus 
-        ? "Pilota sospeso con successo" 
-        : "Pilota riattivato con successo"
-      );
+      setPilot(prev => ({ 
+        ...prev, 
+        suspended: true,
+        suspension_reason: suspensionReason,
+        suspension_date: suspensionDate
+      }));
+      toast.success("Pilota sospeso con successo");
       
-      // Redirect to suspended pilots page if suspended
-      if (newStatus) {
-        navigate('/suspended');
-      }
+      // Redirect to suspended pilots page
+      navigate('/suspended');
     } catch (err) {
       console.error('Error updating pilot status:', err);
       toast.error("Errore durante l'aggiornamento dello stato");
     } finally {
       setSuspending(false);
+      setSuspendDialogOpen(false);
+      setSuspensionReason('');
+    }
+  };
+
+  const handleReactivate = async () => {
+    setSuspending(true);
+    try {
+      const { error } = await supabase
+        .from('pilots')
+        .update({
+          suspended: false,
+          updated_at: new Date().toISOString(),
+          suspension_reason: null,
+          suspension_date: null
+        })
+        .eq('id', id);
+      
+      if (error) {
+        throw error;
+      }
+
+      // Update the local state
+      setPilot(prev => ({ 
+        ...prev, 
+        suspended: false,
+        suspension_reason: undefined,
+        suspension_date: undefined
+      }));
+      toast.success("Pilota riattivato con successo");
+      
+      // Redirect to dashboard
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Error updating pilot status:', err);
+      toast.error("Errore durante l'aggiornamento dello stato");
+    } finally {
+      setSuspending(false);
+    }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    try {
+      return format(new Date(dateString), "dd/MM/yyyy HH:mm");
+    } catch (error) {
+      return "Data non valida";
     }
   };
 
@@ -199,7 +264,7 @@ const PilotDetail = () => {
                     <Button 
                       variant={pilot.suspended ? "default" : "destructive"}
                       className="gap-2"
-                      onClick={handleSuspendToggle}
+                      onClick={pilot.suspended ? handleReactivate : handleSuspendClick}
                       disabled={suspending}
                     >
                       {suspending ? (
@@ -242,6 +307,26 @@ const PilotDetail = () => {
                   <dt className="text-sm font-medium text-gray-500">Voli Totali Vecchi VMS</dt>
                   <dd className="mt-1 text-sm sm:col-span-2 sm:mt-0">{pilot.old_flights}</dd>
                 </div>
+                {pilot.suspended && (
+                  <>
+                    <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
+                      <dt className="text-sm font-medium text-gray-500">Data Sospensione</dt>
+                      <dd className="mt-1 text-sm sm:col-span-2 sm:mt-0 flex items-center">
+                        <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
+                        {formatDate(pilot.suspension_date)}
+                      </dd>
+                    </div>
+                    <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
+                      <dt className="text-sm font-medium text-gray-500">Motivo Sospensione</dt>
+                      <dd className="mt-1 text-sm sm:col-span-2 sm:mt-0">
+                        <div className="flex items-start">
+                          <AlertCircle className="mr-2 h-4 w-4 text-muted-foreground mt-0.5" />
+                          <span className="whitespace-pre-wrap">{pilot.suspension_reason || "Nessun motivo specificato"}</span>
+                        </div>
+                      </dd>
+                    </div>
+                  </>
+                )}
               </dl>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -331,6 +416,45 @@ const PilotDetail = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sospensione pilota</DialogTitle>
+            <DialogDescription>
+              Inserisci il motivo della sospensione del pilota. Questa informazione verrà registrata.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="suspension-reason">Motivo della sospensione</Label>
+              <Textarea
+                id="suspension-reason"
+                placeholder="Inserisci il motivo della sospensione..."
+                value={suspensionReason}
+                onChange={(e) => setSuspensionReason(e.target.value)}
+                rows={4}
+                required
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setSuspendDialogOpen(false);
+              setSuspensionReason('');
+            }}>
+              Annulla
+            </Button>
+            <Button 
+              onClick={confirmSuspend} 
+              className="bg-destructive text-destructive-foreground"
+              disabled={!suspensionReason.trim()}
+            >
+              Sospendi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
