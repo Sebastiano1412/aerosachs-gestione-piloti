@@ -1,0 +1,11 @@
+
+# Netlify configuration file
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+# Redirect rule for SPA client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
