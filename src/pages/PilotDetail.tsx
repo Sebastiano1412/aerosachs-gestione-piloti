@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Pilot } from '../types';
@@ -48,6 +47,7 @@ const PilotDetail = () => {
   });
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
   const [suspensionReason, setSuspensionReason] = useState('');
+  const [flightHours, setFlightHours] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     const fetchPilot = async () => {
@@ -86,7 +86,7 @@ const PilotDetail = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'old_flights' ? parseInt(value) || 0 : value
+      [name]: name === 'old_flights' || name === 'flight_hours' ? parseInt(value) || 0 : value
     }));
   };
 
@@ -125,6 +125,7 @@ const PilotDetail = () => {
 
   const handleSuspendClick = () => {
     setSuspendDialogOpen(true);
+    setFlightHours(pilot.flight_hours);
   };
 
   const confirmSuspend = async () => {
@@ -137,7 +138,8 @@ const PilotDetail = () => {
           suspended: true,
           updated_at: suspensionDate,
           suspension_reason: suspensionReason,
-          suspension_date: suspensionDate
+          suspension_date: suspensionDate,
+          flight_hours: flightHours
         })
         .eq('id', id);
       
@@ -150,7 +152,8 @@ const PilotDetail = () => {
         ...prev, 
         suspended: true,
         suspension_reason: suspensionReason,
-        suspension_date: suspensionDate
+        suspension_date: suspensionDate,
+        flight_hours: flightHours
       }));
       toast.success("Pilota sospeso con successo");
       
@@ -163,6 +166,7 @@ const PilotDetail = () => {
       setSuspending(false);
       setSuspendDialogOpen(false);
       setSuspensionReason('');
+      setFlightHours(undefined);
     }
   };
 
@@ -317,6 +321,12 @@ const PilotDetail = () => {
                       </dd>
                     </div>
                     <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
+                      <dt className="text-sm font-medium text-gray-500">Ore di Volo</dt>
+                      <dd className="mt-1 text-sm sm:col-span-2 sm:mt-0">
+                        {pilot.flight_hours !== undefined ? pilot.flight_hours : 'Non specificate'}
+                      </dd>
+                    </div>
+                    <div className="py-4 sm:grid sm:grid-cols-3 sm:gap-4">
                       <dt className="text-sm font-medium text-gray-500">Motivo Sospensione</dt>
                       <dd className="mt-1 text-sm sm:col-span-2 sm:mt-0">
                         <div className="flex items-start">
@@ -383,6 +393,18 @@ const PilotDetail = () => {
                       required
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="flight_hours">Ore di Volo</Label>
+                    <Input
+                      id="flight_hours"
+                      name="flight_hours"
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      value={formData.flight_hours === undefined ? '' : formData.flight_hours}
+                      onChange={handleInputChange}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex justify-end gap-4">
@@ -422,10 +444,22 @@ const PilotDetail = () => {
           <DialogHeader>
             <DialogTitle>Sospensione pilota</DialogTitle>
             <DialogDescription>
-              Inserisci il motivo della sospensione del pilota. Questa informazione verrà registrata.
+              Inserisci il motivo della sospensione del pilota e le ore di volo. Queste informazioni verranno registrate.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="flight-hours">Ore di Volo</Label>
+              <Input
+                id="flight-hours"
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="Inserisci le ore di volo..."
+                value={flightHours === undefined ? '' : flightHours}
+                onChange={(e) => setFlightHours(parseFloat(e.target.value) || undefined)}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="suspension-reason">Motivo della sospensione</Label>
               <Textarea
@@ -442,6 +476,7 @@ const PilotDetail = () => {
             <Button variant="outline" onClick={() => {
               setSuspendDialogOpen(false);
               setSuspensionReason('');
+              setFlightHours(undefined);
             }}>
               Annulla
             </Button>

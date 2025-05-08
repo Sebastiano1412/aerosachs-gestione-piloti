@@ -14,6 +14,7 @@ export type Database = {
           callsign: string
           created_at: string | null
           discord: string
+          flight_hours: number | null
           id: string
           name: string
           old_flights: number
@@ -27,6 +28,7 @@ export type Database = {
           callsign: string
           created_at?: string | null
           discord: string
+          flight_hours?: number | null
           id?: string
           name: string
           old_flights?: number
@@ -40,6 +42,7 @@ export type Database = {
           callsign?: string
           created_at?: string | null
           discord?: string
+          flight_hours?: number | null
           id?: string
           name?: string
           old_flights?: number

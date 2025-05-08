@@ -6,6 +6,7 @@ export interface Pilot {
   surname: string;
   discord: string;
   old_flights: number;
+  flight_hours?: number;
   suspended?: boolean;
   suspension_reason?: string;
   suspension_date?: string;

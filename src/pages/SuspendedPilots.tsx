@@ -5,7 +5,7 @@ import { Pilot, SearchFilters } from '../types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, UserPlus, Trash2, Loader2, ArrowLeft, UserCheck, Clock, AlignLeft } from 'lucide-react';
+import { Search, UserPlus, Trash2, Loader2, ArrowLeft, UserCheck, Clock, AlignLeft, Gauge } from 'lucide-react';
 import Layout from '../components/Layout';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
@@ -239,6 +239,7 @@ const SuspendedPilots = () => {
                       <TableHead>Nome</TableHead>
                       <TableHead>Cognome</TableHead>
                       <TableHead className="hidden md:table-cell">Data Sospensione</TableHead>
+                      <TableHead className="hidden md:table-cell">Ore di Volo</TableHead>
                       <TableHead className="hidden md:table-cell">Motivo</TableHead>
                       <TableHead className="text-right">Azioni</TableHead>
                     </TableRow>
@@ -246,7 +247,7 @@ const SuspendedPilots = () => {
                   <TableBody>
                     {filteredPilots.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                           Nessun pilota sospeso trovato
                         </TableCell>
                       </TableRow>
@@ -260,6 +261,12 @@ const SuspendedPilots = () => {
                             <div className="flex items-center">
                               <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
                               {formatDate(pilot.suspension_date)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <div className="flex items-center">
+                              <Gauge className="mr-2 h-4 w-4 text-muted-foreground" />
+                              {pilot.flight_hours !== undefined ? `${pilot.flight_hours}` : 'N/A'}
                             </div>
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
