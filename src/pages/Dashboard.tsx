@@ -56,6 +56,7 @@ const Dashboard = () => {
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
   const [pilotToSuspend, setPilotToSuspend] = useState<string | null>(null);
   const [suspensionReason, setSuspensionReason] = useState('');
+  const [flightHours, setFlightHours] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     const fetchPilots = async () => {
@@ -148,7 +149,8 @@ const Dashboard = () => {
             suspended: true, 
             updated_at: suspensionDate,
             suspension_reason: suspensionReason,
-            suspension_date: suspensionDate
+            suspension_date: suspensionDate,
+            flight_hours: flightHours
           })
           .eq('id', pilotToSuspend);
         
@@ -166,6 +168,7 @@ const Dashboard = () => {
         setSuspendDialogOpen(false);
         setPilotToSuspend(null);
         setSuspensionReason('');
+        setFlightHours(undefined);
       }
     }
   };
@@ -317,10 +320,22 @@ const Dashboard = () => {
           <DialogHeader>
             <DialogTitle>Sospensione pilota</DialogTitle>
             <DialogDescription>
-              Inserisci il motivo della sospensione del pilota. Questa informazione verrà registrata.
+              Inserisci il motivo della sospensione del pilota e le ore di volo. Queste informazioni verranno registrate.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="flight-hours">Ore di Volo</Label>
+              <Input
+                id="flight-hours"
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="Inserisci le ore di volo..."
+                value={flightHours === undefined ? '' : flightHours}
+                onChange={(e) => setFlightHours(parseFloat(e.target.value) || undefined)}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="suspension-reason">Motivo della sospensione</Label>
               <Textarea
@@ -337,6 +352,7 @@ const Dashboard = () => {
             <Button variant="outline" onClick={() => {
               setSuspendDialogOpen(false);
               setSuspensionReason('');
+              setFlightHours(undefined);
             }}>
               Annulla
             </Button>
