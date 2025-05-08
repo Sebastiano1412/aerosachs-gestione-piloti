@@ -4,8 +4,8 @@ export interface Pilot {
   callsign: string;
   name: string;
   surname: string;
-  discord: string;
-  old_flights: number;
+  discord?: string;
+  old_flights?: number;
   flight_hours?: number;
   suspended?: boolean;
   suspension_reason?: string;

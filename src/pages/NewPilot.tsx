@@ -84,13 +84,11 @@ const NewPilot = () => {
       newErrors.surname = "Il cognome è obbligatorio";
     }
     
-    if (!formData.discord) {
-      newErrors.discord = "L'username Discord è obbligatorio";
-    }
-    
     if (formData.old_flights < 0) {
       newErrors.old_flights = "Il numero di voli non può essere negativo";
     }
+    
+    // Removed discord validation as it's now optional
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -124,7 +122,7 @@ const NewPilot = () => {
           .update({
             name: formData.name,
             surname: formData.surname,
-            discord: formData.discord,
+            discord: formData.discord || null,
             old_flights: formData.old_flights,
             suspended: false,
             updated_at: new Date().toISOString()
@@ -144,7 +142,7 @@ const NewPilot = () => {
             callsign: formData.callsign,
             name: formData.name,
             surname: formData.surname,
-            discord: formData.discord,
+            discord: formData.discord || null,
             old_flights: formData.old_flights,
             suspended: false
           }]);
@@ -251,7 +249,7 @@ const NewPilot = () => {
                 <div className="space-y-2">
                   <Label htmlFor="discord">
                     Username Discord
-                    <span className="text-destructive ml-1">*</span>
+                    {/* Removed required asterisk */}
                   </Label>
                   <Input
                     id="discord"
@@ -260,7 +258,7 @@ const NewPilot = () => {
                     onChange={handleInputChange}
                     className={errors.discord ? "border-destructive" : ""}
                     placeholder="es. username#1234"
-                    required
+                    // Removed required attribute
                   />
                   {errors.discord && (
                     <p className="text-sm text-destructive">{errors.discord}</p>
