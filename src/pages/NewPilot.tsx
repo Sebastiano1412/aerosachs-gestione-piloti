@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
@@ -50,10 +49,19 @@ const NewPilot = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'old_flights' ? parseInt(value) || 0 : value
-    }));
+    
+    // For callsign, convert to uppercase
+    if (name === 'callsign') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value.toUpperCase()
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: name === 'old_flights' ? parseInt(value) || 0 : value
+      }));
+    }
     
     // Clear the error for this field if it exists
     if (errors[name]) {

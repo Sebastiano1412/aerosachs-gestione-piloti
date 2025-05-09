@@ -13,7 +13,7 @@ export type Database = {
         Row: {
           callsign: string
           created_at: string | null
-          discord: string
+          discord: string | null
           flight_hours: number | null
           id: string
           name: string
@@ -27,7 +27,7 @@ export type Database = {
         Insert: {
           callsign: string
           created_at?: string | null
-          discord: string
+          discord?: string | null
           flight_hours?: number | null
           id?: string
           name: string
@@ -41,7 +41,7 @@ export type Database = {
         Update: {
           callsign?: string
           created_at?: string | null
-          discord?: string
+          discord?: string | null
           flight_hours?: number | null
           id?: string
           name?: string
