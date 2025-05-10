@@ -14,6 +14,7 @@ import PilotDetail from "./pages/PilotDetail";
 import NewPilot from "./pages/NewPilot";
 import NotFound from "./pages/NotFound";
 import SuspendedPilots from "./pages/SuspendedPilots";
+import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
 
@@ -63,7 +64,14 @@ const App = () => (
               }
             />
             
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Index />
+                </ProtectedRoute>
+              }
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
