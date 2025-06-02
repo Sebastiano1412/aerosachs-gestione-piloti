@@ -174,6 +174,31 @@ const Dashboard = () => {
     }
   };
 
+  const sendDiscordNotification = async (pilot: Pilot, reason: string) => {
+    try {
+      console.log('Sending Discord notification for pilot:', pilot.callsign);
+      
+      const { error } = await supabase.functions.invoke('discord-notification', {
+        body: {
+          callsign: pilot.callsign,
+          name: pilot.name,
+          surname: pilot.surname,
+          reason: reason
+        }
+      });
+
+      if (error) {
+        console.error('Discord notification error:', error);
+        // Don't show error to user as this is not critical for the suspension process
+      } else {
+        console.log('Discord notification sent successfully');
+      }
+    } catch (error) {
+      console.error('Failed to send Discord notification:', error);
+      // Don't show error to user as this is not critical for the suspension process
+    }
+  };
+
   const handleSuspendClick = (pilotId: string) => {
     setPilotToSuspend(pilotId);
     setSuspendDialogOpen(true);
@@ -196,6 +221,13 @@ const Dashboard = () => {
         
         if (error) {
           throw error;
+        }
+
+        // Find the suspended pilot for Discord notification
+        const suspendedPilot = pilots.find(pilot => pilot.id === pilotToSuspend);
+        if (suspendedPilot) {
+          // Send Discord notification in the background
+          sendDiscordNotification(suspendedPilot, suspensionReason);
         }
 
         // Update local state after successful suspension

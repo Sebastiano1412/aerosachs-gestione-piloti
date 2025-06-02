@@ -49,6 +49,31 @@ const PilotDetail = () => {
   const [suspensionReason, setSuspensionReason] = useState('');
   const [flightHours, setFlightHours] = useState<number | undefined>(undefined);
 
+  const sendDiscordNotification = async (pilot: Pilot, reason: string) => {
+    try {
+      console.log('Sending Discord notification for pilot:', pilot.callsign);
+      
+      const { error } = await supabase.functions.invoke('discord-notification', {
+        body: {
+          callsign: pilot.callsign,
+          name: pilot.name,
+          surname: pilot.surname,
+          reason: reason
+        }
+      });
+
+      if (error) {
+        console.error('Discord notification error:', error);
+        // Don't show error to user as this is not critical for the suspension process
+      } else {
+        console.log('Discord notification sent successfully');
+      }
+    } catch (error) {
+      console.error('Failed to send Discord notification:', error);
+      // Don't show error to user as this is not critical for the suspension process
+    }
+  };
+
   useEffect(() => {
     const fetchPilot = async () => {
       setLoading(true);
@@ -146,6 +171,9 @@ const PilotDetail = () => {
       if (error) {
         throw error;
       }
+
+      // Send Discord notification in the background
+      sendDiscordNotification(pilot, suspensionReason);
 
       // Update the local state
       setPilot(prev => ({ 
