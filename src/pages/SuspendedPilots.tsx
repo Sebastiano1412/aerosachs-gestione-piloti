@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Pilot, SearchFilters } from '../types';
@@ -129,8 +128,36 @@ const SuspendedPilots = () => {
     }
   };
 
+  const sendDiscordNotification = async (pilot: Pilot, type: 'reactivation') => {
+    try {
+      console.log(`Sending Discord notification for pilot ${type}:`, pilot.callsign);
+      
+      const { error } = await supabase.functions.invoke('discord-notification', {
+        body: {
+          callsign: pilot.callsign,
+          name: pilot.name,
+          surname: pilot.surname,
+          type: type
+        }
+      });
+
+      if (error) {
+        console.error('Discord notification error:', error);
+        // Don't show error to user as this is not critical
+      } else {
+        console.log('Discord notification sent successfully');
+      }
+    } catch (error) {
+      console.error('Failed to send Discord notification:', error);
+      // Don't show error to user as this is not critical
+    }
+  };
+
   const handleReactivatePilot = async (pilotId: string) => {
     try {
+      // Get pilot data before updating
+      const pilotData = pilots.find(p => p.id === pilotId);
+
       const { error } = await supabase
         .from('pilots')
         .update({ 
@@ -143,6 +170,11 @@ const SuspendedPilots = () => {
       
       if (error) {
         throw error;
+      }
+
+      // Send reactivation notification
+      if (pilotData) {
+        sendDiscordNotification(pilotData, 'reactivation');
       }
 
       // Update local state after successful reactivation

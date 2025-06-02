@@ -102,6 +102,31 @@ const NewPilot = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const sendDiscordNotification = async (pilot: any, type: 'creation' | 'reactivation') => {
+    try {
+      console.log(`Sending Discord notification for pilot ${type}:`, pilot.callsign);
+      
+      const { error } = await supabase.functions.invoke('discord-notification', {
+        body: {
+          callsign: pilot.callsign,
+          name: pilot.name,
+          surname: pilot.surname,
+          type: type
+        }
+      });
+
+      if (error) {
+        console.error('Discord notification error:', error);
+        // Don't show error to user as this is not critical
+      } else {
+        console.log('Discord notification sent successfully');
+      }
+    } catch (error) {
+      console.error('Failed to send Discord notification:', error);
+      // Don't show error to user as this is not critical
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -141,6 +166,9 @@ const NewPilot = () => {
           throw updateError;
         }
         
+        // Send reactivation notification
+        sendDiscordNotification(formData, 'reactivation');
+        
         toast.success("Pilota riattivato con successo");
       } else {
         // Insert new pilot
@@ -158,6 +186,9 @@ const NewPilot = () => {
         if (insertError) {
           throw insertError;
         }
+        
+        // Send creation notification
+        sendDiscordNotification(formData, 'creation');
         
         toast.success("Nuovo pilota aggiunto con successo");
       }

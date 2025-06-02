@@ -4,7 +4,7 @@ import { Pilot, SearchFilters } from '../types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, UserPlus, Edit, Trash2, Loader2, UserX, Users } from 'lucide-react';
+import { Search, UserPlus, UserX, Loader2, AlertCircle } from 'lucide-react';
 import Layout from '../components/Layout';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +34,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { format } from "date-fns";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -41,24 +50,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 
 const Dashboard = () => {
   const [pilots, setPilots] = useState<Pilot[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activePilotsCount, setActivePilotsCount] = useState<number | null>(null);
-  const [suspendedPilotsCount, setSuspendedPilotsCount] = useState<number | null>(null);
-  const [countersLoading, setCountersLoading] = useState(true);
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({
     query: '',
     searchBy: 'fullname'
   });
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [pilotToDelete, setPilotToDelete] = useState<string | null>(null);
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
   const [pilotToSuspend, setPilotToSuspend] = useState<string | null>(null);
   const [suspensionReason, setSuspensionReason] = useState('');
+  const [suspending, setSuspending] = useState(false);
   const [flightHours, setFlightHours] = useState<number | undefined>(undefined);
 
   useEffect(() => {
@@ -87,43 +90,6 @@ const Dashboard = () => {
     fetchPilots();
   }, []);
 
-  useEffect(() => {
-    const fetchPilotCounts = async () => {
-      try {
-        setCountersLoading(true);
-        
-        // Get count of active pilots (suspended = false)
-        const { count: activeCount, error: activeError } = await supabase
-          .from('pilots')
-          .select('*', { count: 'exact', head: true })
-          .eq('suspended', false);
-        
-        if (activeError) {
-          throw activeError;
-        }
-
-        // Get count of suspended pilots (suspended = true)
-        const { count: suspendedCount, error: suspendedError } = await supabase
-          .from('pilots')
-          .select('*', { count: 'exact', head: true })
-          .eq('suspended', true);
-        
-        if (suspendedError) {
-          throw suspendedError;
-        }
-
-        setActivePilotsCount(activeCount);
-        setSuspendedPilotsCount(suspendedCount);
-      } catch (error) {
-        console.error('Error fetching pilots count:', error);
-      } finally {
-        setCountersLoading(false);
-      }
-    };
-
-    fetchPilotCounts();
-  }, []);
-
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchFilters(prev => ({ ...prev, query: e.target.value }));
   };
@@ -144,104 +110,125 @@ const Dashboard = () => {
     }
   });
 
-  const handleDeleteClick = (pilotId: string) => {
-    setPilotToDelete(pilotId);
-    setDeleteDialogOpen(true);
+  const handleSuspendClick = (pilotId: string) => {
+    setPilotToSuspend(pilotId);
+    setSuspendDialogOpen(true);
   };
 
-  const confirmDelete = async () => {
-    if (pilotToDelete) {
-      try {
-        const { error } = await supabase
-          .from('pilots')
-          .delete()
-          .eq('id', pilotToDelete);
-        
-        if (error) {
-          throw error;
-        }
-
-        // Update local state after successful deletion
-        setPilots(pilots.filter(pilot => pilot.id !== pilotToDelete));
-        toast.success("Pilota eliminato con successo");
-      } catch (error) {
-        console.error('Error deleting pilot:', error);
-        toast.error("Errore durante l'eliminazione del pilota");
-      } finally {
-        setDeleteDialogOpen(false);
-        setPilotToDelete(null);
-      }
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    try {
+      return format(new Date(dateString), "dd/MM/yyyy HH:mm");
+    } catch (error) {
+      return "Data non valida";
     }
   };
 
-  const sendDiscordNotification = async (pilot: Pilot, reason: string) => {
+  const sendDiscordNotification = async (pilot: Pilot, type: 'suspension' | 'reactivation', reason?: string) => {
     try {
-      console.log('Sending Discord notification for pilot:', pilot.callsign);
+      console.log(`Sending Discord notification for pilot ${type}:`, pilot.callsign);
       
       const { error } = await supabase.functions.invoke('discord-notification', {
         body: {
           callsign: pilot.callsign,
           name: pilot.name,
           surname: pilot.surname,
+          type: type,
           reason: reason
         }
       });
 
       if (error) {
         console.error('Discord notification error:', error);
-        // Don't show error to user as this is not critical for the suspension process
+        // Don't show error to user as this is not critical
       } else {
         console.log('Discord notification sent successfully');
       }
     } catch (error) {
       console.error('Failed to send Discord notification:', error);
-      // Don't show error to user as this is not critical for the suspension process
+      // Don't show error to user as this is not critical
     }
   };
 
-  const handleSuspendClick = (pilotId: string) => {
-    setPilotToSuspend(pilotId);
-    setSuspendDialogOpen(true);
+  const handleReactivatePilot = async (pilotId: string) => {
+    try {
+      // Get pilot data before updating
+      const { data: pilotData, error: fetchError } = await supabase
+        .from('pilots')
+        .select('*')
+        .eq('id', pilotId)
+        .single();
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      const { error } = await supabase
+        .from('pilots')
+        .update({ 
+          suspended: false, 
+          updated_at: new Date().toISOString(),
+          suspension_reason: null,
+          suspension_date: null 
+        })
+        .eq('id', pilotId);
+      
+      if (error) {
+        throw error;
+      }
+
+      // Send reactivation notification
+      if (pilotData) {
+        sendDiscordNotification(pilotData, 'reactivation');
+      }
+
+      // Update local state after successful reactivation
+      setPilots(pilots.filter(pilot => pilot.id !== pilotId));
+      toast.success("Pilota riattivato con successo");
+    } catch (error) {
+      console.error('Error reactivating pilot:', error);
+      toast.error("Errore durante la riattivazione del pilota");
+    }
   };
 
   const confirmSuspend = async () => {
-    if (pilotToSuspend) {
-      try {
-        const suspensionDate = new Date().toISOString();
-        const { error } = await supabase
-          .from('pilots')
-          .update({ 
-            suspended: true, 
-            updated_at: suspensionDate,
-            suspension_reason: suspensionReason,
-            suspension_date: suspensionDate,
-            flight_hours: flightHours
-          })
-          .eq('id', pilotToSuspend);
-        
-        if (error) {
-          throw error;
-        }
-
-        // Find the suspended pilot for Discord notification
-        const suspendedPilot = pilots.find(pilot => pilot.id === pilotToSuspend);
-        if (suspendedPilot) {
-          // Send Discord notification in the background
-          sendDiscordNotification(suspendedPilot, suspensionReason);
-        }
-
-        // Update local state after successful suspension
-        setPilots(pilots.filter(pilot => pilot.id !== pilotToSuspend));
-        toast.success("Pilota sospeso con successo");
-      } catch (error) {
-        console.error('Error suspending pilot:', error);
-        toast.error("Errore durante la sospensione del pilota");
-      } finally {
-        setSuspendDialogOpen(false);
-        setPilotToSuspend(null);
-        setSuspensionReason('');
-        setFlightHours(undefined);
+    setSuspending(true);
+    try {
+      const suspensionDate = new Date().toISOString();
+      const { error } = await supabase
+        .from('pilots')
+        .update({
+          suspended: true,
+          updated_at: suspensionDate,
+          suspension_reason: suspensionReason,
+          suspension_date: suspensionDate,
+          flight_hours: flightHours
+        })
+        .eq('id', pilotToSuspend);
+      
+      if (error) {
+        throw error;
       }
+
+      // Find the pilot data for notification
+      const pilotData = pilots.find(p => p.id === pilotToSuspend);
+      if (pilotData) {
+        // Send suspension notification
+        sendDiscordNotification(pilotData, 'suspension', suspensionReason);
+      }
+
+      // Update local state after successful suspension
+      setPilots(pilots.filter(pilot => pilot.id !== pilotToSuspend));
+      toast.success("Pilota sospeso con successo");
+    } catch (err) {
+      console.error('Error updating pilot status:', err);
+      toast.error("Errore durante l'aggiornamento dello stato");
+    } finally {
+      setSuspending(false);
+      setSuspendDialogOpen(false);
+      setPilotToSuspend(null);
+      setSuspensionReason('');
+      setFlightHours(undefined);
     }
   };
 
@@ -250,65 +237,17 @@ const Dashboard = () => {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h1 className="text-3xl font-bold">Gestione Piloti</h1>
-          <div className="flex gap-2">
-            <Button asChild variant="outline">
-              <Link to="/suspended">
-                <UserX className="mr-2 h-4 w-4" />
-                Piloti Sospesi
-              </Link>
-            </Button>
-            <Button asChild className="bg-accent hover:bg-accent/90">
-              <Link to="/new-pilot">
-                <UserPlus className="mr-2 h-4 w-4" />
-                Nuovo Pilota
-              </Link>
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-medium">Piloti Attivi</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {countersLoading ? (
-                <div className="flex items-center">
-                  <Loader2 className="h-5 w-5 animate-spin mr-2 text-primary" />
-                  <span>Caricamento...</span>
-                </div>
-              ) : (
-                <div className="flex items-center">
-                  <Users className="h-10 w-10 text-green-600 mr-3" />
-                  <div className="text-3xl font-bold">{activePilotsCount}</div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-medium">Piloti Sospesi</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {countersLoading ? (
-                <div className="flex items-center">
-                  <Loader2 className="h-5 w-5 animate-spin mr-2 text-primary" />
-                  <span>Caricamento...</span>
-                </div>
-              ) : (
-                <div className="flex items-center">
-                  <UserX className="h-10 w-10 text-red-600 mr-3" />
-                  <div className="text-3xl font-bold">{suspendedPilotsCount}</div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <Button asChild className="bg-accent hover:bg-accent/90">
+            <Link to="/new-pilot">
+              <UserPlus className="mr-2 h-4 w-4" />
+              Nuovo Pilota
+            </Link>
+          </Button>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Cerca Piloti</CardTitle>
+            <CardTitle>Cerca Pilota</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col md:flex-row gap-4">
@@ -338,7 +277,7 @@ const Dashboard = () => {
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Lista Piloti</CardTitle>
           </CardHeader>
           <CardContent>
@@ -354,14 +293,13 @@ const Dashboard = () => {
                       <TableHead className="w-[100px]">Callsign</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead>Cognome</TableHead>
-                      <TableHead className="hidden md:table-cell">Username Discord</TableHead>
                       <TableHead className="text-right">Azioni</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredPilots.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                        <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
                           Nessun pilota trovato
                         </TableCell>
                       </TableRow>
@@ -371,9 +309,13 @@ const Dashboard = () => {
                           <TableCell>{pilot.callsign}</TableCell>
                           <TableCell>{pilot.name}</TableCell>
                           <TableCell>{pilot.surname}</TableCell>
-                          <TableCell className="hidden md:table-cell">{pilot.discord}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
+                              <Button variant="outline" size="icon" asChild>
+                                <Link to={`/pilot/${pilot.id}`} title="Dettagli">
+                                  <Search className="h-4 w-4" />
+                                </Link>
+                              </Button>
                               <Button 
                                 variant="outline" 
                                 size="icon"
@@ -382,20 +324,6 @@ const Dashboard = () => {
                                 title="Sospendi"
                               >
                                 <UserX className="h-4 w-4" />
-                              </Button>
-                              <Button variant="outline" size="icon" asChild>
-                                <Link to={`/pilot/${pilot.id}`} title="Modifica">
-                                  <Edit className="h-4 w-4" />
-                                </Link>
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="icon"
-                                className="text-destructive hover:text-destructive hover:border-destructive"
-                                onClick={() => handleDeleteClick(pilot.id as string)}
-                                title="Elimina"
-                              >
-                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           </TableCell>
@@ -409,23 +337,6 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
-
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Conferma eliminazione</AlertDialogTitle>
-            <AlertDialogDescription>
-              Sei sicuro di voler eliminare questo pilota? Questa azione non può essere annullata.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annulla</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground">
-              Elimina
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <Dialog open={suspendDialogOpen} onOpenChange={setSuspendDialogOpen}>
         <DialogContent>

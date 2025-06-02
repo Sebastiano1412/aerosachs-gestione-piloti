@@ -6,11 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface SuspensionData {
+interface NotificationData {
   callsign: string
   name: string
   surname: string
-  reason: string
+  type: 'suspension' | 'reactivation' | 'creation'
+  reason?: string
 }
 
 serve(async (req) => {
@@ -27,38 +28,97 @@ serve(async (req) => {
   }
 
   try {
-    const { callsign, name, surname, reason }: SuspensionData = await req.json()
+    const { callsign, name, surname, type, reason }: NotificationData = await req.json()
     
-    console.log('Sending Discord notification for pilot suspension:', { callsign, name, surname })
+    console.log(`Sending Discord notification for pilot ${type}:`, { callsign, name, surname })
 
     const webhookUrl = 'https://discord.com/api/webhooks/939879808274403338/oPKZHqM0L8RFfTQ1aOOWPnQvL-tpWcBrkvnSNWpBRk-hNhqagHKdBK52hcS0iQi0xzFN'
     
-    const discordMessage = {
-      embeds: [{
-        title: "🚫 Pilota Sospeso",
-        color: 0xff0000, // Red color
-        fields: [
-          {
-            name: "Callsign",
-            value: callsign,
-            inline: true
-          },
-          {
-            name: "Nome",
-            value: `${name} ${surname}`,
-            inline: true
-          },
-          {
-            name: "Motivo",
-            value: reason,
-            inline: false
-          }
-        ],
-        timestamp: new Date().toISOString(),
-        footer: {
-          text: "Sistema Gestione Piloti"
-        }
-      }]
+    let discordMessage;
+
+    switch (type) {
+      case 'suspension':
+        discordMessage = {
+          embeds: [{
+            title: "🚫 Pilota Sospeso",
+            color: 0xff0000, // Red color
+            fields: [
+              {
+                name: "Callsign",
+                value: callsign,
+                inline: true
+              },
+              {
+                name: "Nome",
+                value: `${name} ${surname}`,
+                inline: true
+              },
+              {
+                name: "Motivo",
+                value: reason || "Nessun motivo specificato",
+                inline: false
+              }
+            ],
+            timestamp: new Date().toISOString(),
+            footer: {
+              text: "Sistema Gestione Piloti"
+            }
+          }]
+        };
+        break;
+
+      case 'reactivation':
+        discordMessage = {
+          embeds: [{
+            title: "✅ Pilota Riattivato",
+            color: 0x00ff00, // Green color
+            fields: [
+              {
+                name: "Callsign",
+                value: callsign,
+                inline: true
+              },
+              {
+                name: "Nome",
+                value: `${name} ${surname}`,
+                inline: true
+              }
+            ],
+            timestamp: new Date().toISOString(),
+            footer: {
+              text: "Sistema Gestione Piloti"
+            }
+          }]
+        };
+        break;
+
+      case 'creation':
+        discordMessage = {
+          embeds: [{
+            title: "🆕 Nuovo Pilota Aggiunto",
+            color: 0x0099ff, // Blue color
+            fields: [
+              {
+                name: "Callsign",
+                value: callsign,
+                inline: true
+              },
+              {
+                name: "Nome",
+                value: `${name} ${surname}`,
+                inline: true
+              }
+            ],
+            timestamp: new Date().toISOString(),
+            footer: {
+              text: "Sistema Gestione Piloti"
+            }
+          }]
+        };
+        break;
+
+      default:
+        throw new Error(`Invalid notification type: ${type}`);
     }
 
     const response = await fetch(webhookUrl, {

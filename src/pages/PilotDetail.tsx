@@ -49,15 +49,16 @@ const PilotDetail = () => {
   const [suspensionReason, setSuspensionReason] = useState('');
   const [flightHours, setFlightHours] = useState<number | undefined>(undefined);
 
-  const sendDiscordNotification = async (pilot: Pilot, reason: string) => {
+  const sendDiscordNotification = async (pilot: Pilot, type: 'suspension' | 'reactivation', reason?: string) => {
     try {
-      console.log('Sending Discord notification for pilot:', pilot.callsign);
+      console.log(`Sending Discord notification for pilot ${type}:`, pilot.callsign);
       
       const { error } = await supabase.functions.invoke('discord-notification', {
         body: {
           callsign: pilot.callsign,
           name: pilot.name,
           surname: pilot.surname,
+          type: type,
           reason: reason
         }
       });
@@ -173,7 +174,7 @@ const PilotDetail = () => {
       }
 
       // Send Discord notification in the background
-      sendDiscordNotification(pilot, suspensionReason);
+      sendDiscordNotification(pilot, 'suspension', suspensionReason);
 
       // Update the local state
       setPilot(prev => ({ 
@@ -214,6 +215,9 @@ const PilotDetail = () => {
       if (error) {
         throw error;
       }
+
+      // Send reactivation notification
+      sendDiscordNotification(pilot, 'reactivation');
 
       // Update the local state
       setPilot(prev => ({ 
