@@ -4,7 +4,7 @@ import { Pilot, SearchFilters } from '../types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, UserPlus, Edit, Trash2, Loader2, UserX } from 'lucide-react';
+import { Search, UserPlus, Edit, Trash2, Loader2, UserX, Users } from 'lucide-react';
 import Layout from '../components/Layout';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
@@ -47,6 +47,9 @@ import { Textarea } from "@/components/ui/textarea";
 const Dashboard = () => {
   const [pilots, setPilots] = useState<Pilot[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [activePilotsCount, setActivePilotsCount] = useState<number | null>(null);
+  const [suspendedPilotsCount, setSuspendedPilotsCount] = useState<number | null>(null);
+  const [countersLoading, setCountersLoading] = useState(true);
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({
     query: '',
     searchBy: 'fullname'
@@ -82,6 +85,43 @@ const Dashboard = () => {
     };
 
     fetchPilots();
+  }, []);
+
+  useEffect(() => {
+    const fetchPilotCounts = async () => {
+      try {
+        setCountersLoading(true);
+        
+        // Get count of active pilots (suspended = false)
+        const { count: activeCount, error: activeError } = await supabase
+          .from('pilots')
+          .select('*', { count: 'exact', head: true })
+          .eq('suspended', false);
+        
+        if (activeError) {
+          throw activeError;
+        }
+
+        // Get count of suspended pilots (suspended = true)
+        const { count: suspendedCount, error: suspendedError } = await supabase
+          .from('pilots')
+          .select('*', { count: 'exact', head: true })
+          .eq('suspended', true);
+        
+        if (suspendedError) {
+          throw suspendedError;
+        }
+
+        setActivePilotsCount(activeCount);
+        setSuspendedPilotsCount(suspendedCount);
+      } catch (error) {
+        console.error('Error fetching pilots count:', error);
+      } finally {
+        setCountersLoading(false);
+      }
+    };
+
+    fetchPilotCounts();
   }, []);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,6 +232,46 @@ const Dashboard = () => {
               </Link>
             </Button>
           </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-medium">Piloti Attivi</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {countersLoading ? (
+                <div className="flex items-center">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2 text-primary" />
+                  <span>Caricamento...</span>
+                </div>
+              ) : (
+                <div className="flex items-center">
+                  <Users className="h-10 w-10 text-green-600 mr-3" />
+                  <div className="text-3xl font-bold">{activePilotsCount}</div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg font-medium">Piloti Sospesi</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {countersLoading ? (
+                <div className="flex items-center">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2 text-primary" />
+                  <span>Caricamento...</span>
+                </div>
+              ) : (
+                <div className="flex items-center">
+                  <UserX className="h-10 w-10 text-red-600 mr-3" />
+                  <div className="text-3xl font-bold">{suspendedPilotsCount}</div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <Card>
