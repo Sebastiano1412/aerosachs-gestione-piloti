@@ -4,7 +4,7 @@ import { Pilot, SearchFilters } from '../types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, UserPlus, UserX, Loader2, AlertCircle } from 'lucide-react';
+import { Search, UserPlus, UserX, Loader2, AlertCircle, Users, UserCheck } from 'lucide-react';
 import Layout from '../components/Layout';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +50,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 const Dashboard = () => {
   const [pilots, setPilots] = useState<Pilot[]>([]);
@@ -63,6 +64,8 @@ const Dashboard = () => {
   const [suspensionReason, setSuspensionReason] = useState('');
   const [suspending, setSuspending] = useState(false);
   const [flightHours, setFlightHours] = useState<number | undefined>(undefined);
+  const [activePilotsCount, setActivePilotsCount] = useState<number>(0);
+  const [suspendedPilotsCount, setSuspendedPilotsCount] = useState<number>(0);
 
   useEffect(() => {
     const fetchPilots = async () => {
@@ -89,6 +92,39 @@ const Dashboard = () => {
 
     fetchPilots();
   }, []);
+
+  useEffect(() => {
+    const fetchPilotCounts = async () => {
+      try {
+        // Fetch active pilots count
+        const { count: activeCount, error: activeError } = await supabase
+          .from('pilots')
+          .select('*', { count: 'exact', head: true })
+          .eq('suspended', false);
+
+        if (activeError) {
+          throw activeError;
+        }
+
+        // Fetch suspended pilots count
+        const { count: suspendedCount, error: suspendedError } = await supabase
+          .from('pilots')
+          .select('*', { count: 'exact', head: true })
+          .eq('suspended', true);
+
+        if (suspendedError) {
+          throw suspendedError;
+        }
+
+        setActivePilotsCount(activeCount || 0);
+        setSuspendedPilotsCount(suspendedCount || 0);
+      } catch (error) {
+        console.error('Error fetching pilot counts:', error);
+      }
+    };
+
+    fetchPilotCounts();
+  }, [pilots]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchFilters(prev => ({ ...prev, query: e.target.value }));
@@ -237,12 +273,48 @@ const Dashboard = () => {
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <h1 className="text-3xl font-bold">Gestione Piloti</h1>
-          <Button asChild className="bg-accent hover:bg-accent/90">
-            <Link to="/new-pilot">
-              <UserPlus className="mr-2 h-4 w-4" />
-              Nuovo Pilota
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link to="/suspended-pilots">
+                <UserCheck className="mr-2 h-4 w-4" />
+                Piloti Sospesi
+              </Link>
+            </Button>
+            <Button asChild className="bg-accent hover:bg-accent/90">
+              <Link to="/new-pilot">
+                <UserPlus className="mr-2 h-4 w-4" />
+                Nuovo Pilota
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* Pilot Counters */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Piloti Attivi</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{activePilotsCount}</div>
+              <p className="text-xs text-muted-foreground">
+                Piloti attualmente operativi
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Piloti Sospesi</CardTitle>
+              <UserX className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">{suspendedPilotsCount}</div>
+              <p className="text-xs text-muted-foreground">
+                Piloti attualmente sospesi
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         <Card>
