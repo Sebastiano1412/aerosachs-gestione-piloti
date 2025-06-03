@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Pilot, SearchFilters } from '../types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, UserPlus, UserX, Loader2, AlertCircle, Users, UserCheck } from 'lucide-react';
+import { Search, UserPlus, UserX, Loader2, AlertCircle, Users, UserCheck, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
@@ -60,7 +61,9 @@ const Dashboard = () => {
     searchBy: 'fullname'
   });
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [pilotToSuspend, setPilotToSuspend] = useState<string | null>(null);
+  const [pilotToDelete, setPilotToDelete] = useState<string | null>(null);
   const [suspensionReason, setSuspensionReason] = useState('');
   const [suspending, setSuspending] = useState(false);
   const [flightHours, setFlightHours] = useState<number | undefined>(undefined);
@@ -149,6 +152,36 @@ const Dashboard = () => {
   const handleSuspendClick = (pilotId: string) => {
     setPilotToSuspend(pilotId);
     setSuspendDialogOpen(true);
+  };
+
+  const handleDeleteClick = (pilotId: string) => {
+    setPilotToDelete(pilotId);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (pilotToDelete) {
+      try {
+        const { error } = await supabase
+          .from('pilots')
+          .delete()
+          .eq('id', pilotToDelete);
+        
+        if (error) {
+          throw error;
+        }
+
+        // Update local state after successful deletion
+        setPilots(pilots.filter(pilot => pilot.id !== pilotToDelete));
+        toast.success("Pilota eliminato definitivamente");
+      } catch (error) {
+        console.error('Error deleting pilot:', error);
+        toast.error("Errore durante l'eliminazione del pilota");
+      } finally {
+        setDeleteDialogOpen(false);
+        setPilotToDelete(null);
+      }
+    }
   };
 
   const formatDate = (dateString?: string) => {
@@ -365,13 +398,14 @@ const Dashboard = () => {
                       <TableHead className="w-[100px]">Callsign</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead>Cognome</TableHead>
+                      <TableHead>Discord</TableHead>
                       <TableHead className="text-right">Azioni</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredPilots.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
                           Nessun pilota trovato
                         </TableCell>
                       </TableRow>
@@ -381,6 +415,7 @@ const Dashboard = () => {
                           <TableCell>{pilot.callsign}</TableCell>
                           <TableCell>{pilot.name}</TableCell>
                           <TableCell>{pilot.surname}</TableCell>
+                          <TableCell>{pilot.discord || 'N/A'}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button variant="outline" size="icon" asChild>
@@ -396,6 +431,15 @@ const Dashboard = () => {
                                 title="Sospendi"
                               >
                                 <UserX className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="icon"
+                                className="text-destructive hover:text-destructive hover:border-destructive"
+                                onClick={() => handleDeleteClick(pilot.id as string)}
+                                title="Elimina definitivamente"
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           </TableCell>
@@ -461,6 +505,23 @@ const Dashboard = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Conferma eliminazione definitiva</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sei sicuro di voler eliminare definitivamente questo pilota? Il callsign potrà essere riutilizzato, ma tutti i dati associati andranno persi. Questa azione non può essere annullata.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground">
+              Elimina definitivamente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };
