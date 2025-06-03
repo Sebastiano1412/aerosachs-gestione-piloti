@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Pilot, SearchFilters } from '../types';
@@ -308,7 +307,7 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold">Gestione Piloti</h1>
           <div className="flex gap-2">
             <Button asChild variant="outline">
-              <Link to="/suspended-pilots">
+              <Link to="/suspended">
                 <UserCheck className="mr-2 h-4 w-4" />
                 Piloti Sospesi
               </Link>
