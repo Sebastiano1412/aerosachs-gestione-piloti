@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
@@ -32,7 +31,7 @@ serve(async (req) => {
     
     console.log(`Sending Discord notification for pilot ${type}:`, { callsign, name, surname })
 
-    const webhookUrl = 'https://discord.com/api/webhooks/939879808274403338/oPKZHqM0L8RFfTQ1aOOWPnQvL-tpWcBrkvnSNWpBRk-hNhqagHKdBK52hcS0iQi0xzFN'
+    const webhookUrl = 'https://discord.com/api/webhooks/1382093166328680570/EH2xToAQ86lE-Tfu4c9Z7IiDr5yfeOHkzpZ_SO5ydDExzMmEjS6uLLYn5ITJUz_q0i1v'
     
     let discordMessage;
 
