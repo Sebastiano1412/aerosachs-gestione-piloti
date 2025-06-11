@@ -31,7 +31,12 @@ serve(async (req) => {
     
     console.log(`Sending Discord notification for pilot ${type}:`, { callsign, name, surname })
 
-    const webhookUrl = 'https://discord.com/api/webhooks/1382093166328680570/EH2xToAQ86lE-Tfu4c9Z7IiDr5yfeOHkzpZ_SO5ydDExzMmEjS6uLLYn5ITJUz_q0i1v'
+    // Get the webhook URL from environment variables for security
+    const webhookUrl = Deno.env.get('DISCORD_WEBHOOK_URL')
+    
+    if (!webhookUrl) {
+      throw new Error('Discord webhook URL not configured')
+    }
     
     let discordMessage;
 
